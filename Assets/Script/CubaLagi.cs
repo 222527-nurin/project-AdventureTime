@@ -11,6 +11,10 @@ public class CubaLagi : MonoBehaviour
     [SerializeField] private float jumpButtonGracePeriod = 0.2f;
     [SerializeField] private float jumpHorizontalSpeed = 5f;
 
+    [Header("Climbing")]
+    public float climbSpeed = 3f;
+    [SerializeField] private float pushOffForce = 4f;
+
     private Animator animator;
     private CharacterController characterController;
 
@@ -22,6 +26,11 @@ public class CubaLagi : MonoBehaviour
     private bool isGrounded;
     private Vector3 movementDirection;
     private float speed;
+    private bool isClimbing;
+    private bool canClimb;
+    private int climbLayer;
+    private Vector3 wallNormal;
+
     [SerializeField] private float moveSpeed = 3f;
 
     void Start()
@@ -29,6 +38,9 @@ public class CubaLagi : MonoBehaviour
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
         originalStepOffset = characterController.stepOffset;
+
+        climbLayer = LayerMask.NameToLayer("ClimbLayer");
+        climbLayer = ~climbLayer;
     }
     
 
@@ -47,7 +59,7 @@ public class CubaLagi : MonoBehaviour
             animator.SetFloat("Speed", 0);
         }
 
-        else if (!Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+        else if (!Input.GetKey(KeyCode.LeftShift) && !Input.GetKey(KeyCode.RightShift))
         {
             animator.SetFloat("Speed", 0.5f);
         }
@@ -122,6 +134,22 @@ public class CubaLagi : MonoBehaviour
         {
             animator.SetBool("IsMoving", false);
         }
+ 
+       
+        Debug.Log($"isClimbing={isClimbing}, canClimb={canClimb}");
+
+        if (canClimb && !isClimbing && Input.GetKeyDown(KeyCode.E))
+        {
+            animator.SetBool("IsClimbing", true);
+            isClimbing = true;
+        }
+
+        if (isClimbing)
+        {
+            HandleClimbing();
+            HandleEmote();
+            return; // skip normal movement/gravity/jump logic entirely while climbing
+        }
 
         HandleEmote();
     }
@@ -147,5 +175,67 @@ public class CubaLagi : MonoBehaviour
     private void OnApplicationFocus(bool focus)
     {
         Cursor.lockState = focus ? CursorLockMode.Locked : CursorLockMode.None;
+    }
+
+    private void HandleClimbing()
+    {
+        // Exit by jumping off
+        if (Input.GetButtonDown("Jump"))
+        {
+            ExitClimb(pushOff: true);
+            return;
+        }
+
+        // Vertical input drives climb up/down
+        float climbInput = Input.GetAxis("Vertical");
+        Vector3 climbMove = Vector3.up * climbInput * climbSpeed;
+        characterController.Move(climbMove * Time.deltaTime);
+
+        // Drive blend tree parameter
+        animator.SetFloat("ClimbDirection", climbInput, 0.05f, Time.deltaTime);
+
+        animator.SetFloat("ClimbSpeed", climbInput, 0.05f, Time.deltaTime);
+
+        // Reset any residual ySpeed so it doesn't carry into falling once you exit
+        ySpeed = 0f;
+    }
+
+    private void ExitClimb(bool pushOff)
+    {
+        animator.SetBool("IsClimbing", false);
+        isClimbing = false;
+
+        if (pushOff)
+        {
+            // Push backward away from the wall and give a small upward hop
+            ySpeed = jumpSpeed * 0.5f;
+            Vector3 push = -wallNormal * pushOffForce;
+            characterController.Move(push * Time.deltaTime);
+        }
+        else
+        {
+            ySpeed = -0.5f;
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Wall"))
+        {
+            canClimb = true;
+            // Estimate wall normal as the direction from the wall to the player
+            wallNormal = (transform.position - other.transform.position).normalized;
+            wallNormal.y = 0;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Wall"))
+        {
+            canClimb = false;
+            if (isClimbing)
+                ExitClimb(pushOff: false);
+        }
     }
 }
