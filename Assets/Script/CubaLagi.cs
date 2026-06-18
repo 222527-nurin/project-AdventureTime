@@ -39,11 +39,24 @@ public class CubaLagi : MonoBehaviour
         float verticalInput = Input.GetAxis("Vertical");
         movementDirection = new Vector3(horizontalInput, 0, verticalInput);
         speed = Mathf.Clamp01(movementDirection.magnitude);
-        
+
         // FIX: use magnitude directly as "Speed" (0–1 walk, 0.5 with shift)
-        
-        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-            speed /= 2f;
+
+        if (movementDirection == Vector3.zero)
+        {
+            animator.SetFloat("Speed", 0);
+        }
+
+        else if (!Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+        {
+            animator.SetFloat("Speed", 0.5f);
+        }
+
+        else
+        {
+            animator.SetFloat("Speed", 1);
+            speed *= 2f;
+        }
 
         animator.SetFloat("Speed", speed, 0.05f, Time.deltaTime);
 
