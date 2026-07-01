@@ -13,7 +13,14 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private float xRotation = 0f;
     private float yRotation = 0f;
-    
+
+    [Header("Collision")]
+    public LayerMask collisionLayers;
+    public float cameraRadius = 0.3f;
+    public float collisionOffset = 0.2f;
+
+    RaycastHit hit;
+
     void Start()
     {
         //lock cursor
@@ -36,10 +43,24 @@ public class ThirdPersonCamera : MonoBehaviour
         //rotation
         Quaternion rotation = Quaternion.Euler(xRotation, yRotation, 0);
 
-        //position (behind player)
-        Vector3 position = target.position - (rotation * Vector3.forward * distance);
+        Vector3 origin = target.position + Vector3.up * 1.6f;
+        Vector3 desiredPosition = origin - (rotation * Vector3.forward * distance);
+        Vector3 direction = (desiredPosition - origin).normalized;
 
-        transform.position = position;
-        transform.LookAt(target);
+        if (Physics.SphereCast(origin,
+                               cameraRadius,
+                               direction,
+                               out hit,
+                               distance,
+                               collisionLayers))
+        {
+            transform.position = hit.point - direction * collisionOffset;
+        }
+        else
+        {
+            transform.position = desiredPosition;
+        }
+
+        transform.LookAt(origin);
     }
 }

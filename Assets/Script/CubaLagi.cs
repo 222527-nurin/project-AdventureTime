@@ -23,12 +23,14 @@ public class CubaLagi : MonoBehaviour
     private bool isGrounded;
     private Vector3 movementDirection;
     private float speed;
-
+ 
+    [SerializeField] private Transform cameraTransform;
 
     [SerializeField] private float moveSpeed = 3f;
 
     void Start()
     {
+        
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
         originalStepOffset = characterController.stepOffset;
@@ -40,8 +42,25 @@ public class CubaLagi : MonoBehaviour
         // Remove the local declarations, just assign:
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
-        movementDirection = new Vector3(horizontalInput, 0, verticalInput);
+
+        // Camera directions
+        Vector3 forward = cameraTransform.forward;
+        Vector3 right = cameraTransform.right;
+
+        // Ignore camera tilt
+        forward.y = 0f;
+        right.y = 0f;
+
+        forward.Normalize();
+        right.Normalize();
+
+        // Camera-relative movement
+        movementDirection = forward * verticalInput + right * horizontalInput;
+
         speed = Mathf.Clamp01(movementDirection.magnitude);
+
+        if (movementDirection != Vector3.zero)
+            movementDirection.Normalize();
 
         // FIX: use magnitude directly as "Speed" (0–1 walk, 0.5 with shift)
 
