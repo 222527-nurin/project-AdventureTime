@@ -14,13 +14,13 @@ public class TriggerDoorControl : MonoBehaviour
         if (other.CompareTag("Player")){
             if (openTrigger)
             {
-                myDoor.Play("DoorOpen",0,0.0f);
+                myDoor.Play("DoorBukak",0,0.0f);
                 
 
             }
             else if (closeTrigger)
             {
-                myDoor.Play("DoorClose",0,0.0f);
+                myDoor.Play("DoorTutup",0,0.0f);
                
 
             }
