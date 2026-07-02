@@ -15,7 +15,7 @@ public class MusicBackground : MonoBehaviour
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(gameObject);
+            
         }
         else
         {
