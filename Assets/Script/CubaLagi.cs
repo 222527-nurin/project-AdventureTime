@@ -3,14 +3,18 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class CubaLagi : MonoBehaviour
-
 {
     [Header("Movement")]
     [SerializeField] private float rotationSpeed = 500f;
     [SerializeField] private float jumpSpeed = 7f;
     [SerializeField] private float jumpButtonGracePeriod = 0.2f;
     [SerializeField] private float jumpHorizontalSpeed = 5f;
+    [SerializeField] private float moveSpeed = 3f;
 
+    [Header("Audio Settings")]
+    [SerializeField] private AudioSource footstepAudioSource;
+    [SerializeField] private float walkPitch = 0.85f;  // Slower footsteps for walking
+    [SerializeField] private float runPitch = 1.2f;    // Faster footsteps for running
 
     private Animator animator;
     private CharacterController characterController;
@@ -23,23 +27,31 @@ public class CubaLagi : MonoBehaviour
     private bool isGrounded;
     private Vector3 movementDirection;
     private float speed;
- 
-    [SerializeField] private Transform cameraTransform;
 
-    [SerializeField] private float moveSpeed = 3f;
+    [SerializeField] private Transform cameraTransform;
 
     void Start()
     {
-        
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
         originalStepOffset = characterController.stepOffset;
-    }
 
+        // Automatically try to get the AudioSource if it wasn't dragged into the Inspector slot
+        if (footstepAudioSource == null)
+        {
+            footstepAudioSource = GetComponent<AudioSource>();
+        }
+
+        // Configure audio source defaults via code to prevent mistakes
+        if (footstepAudioSource != null)
+        {
+            footstepAudioSource.playOnAwake = false;
+            footstepAudioSource.loop = true;
+        }
+    }
 
     void Update()
     {
-        // Remove the local declarations, just assign:
         float horizontalInput = Input.GetAxis("Horizontal");
         float verticalInput = Input.GetAxis("Vertical");
 
@@ -62,22 +74,21 @@ public class CubaLagi : MonoBehaviour
         if (movementDirection != Vector3.zero)
             movementDirection.Normalize();
 
-        // FIX: use magnitude directly as "Speed" (0–1 walk, 0.5 with shift)
+        bool isRunning = false;
 
         if (movementDirection == Vector3.zero)
         {
             animator.SetFloat("Speed", 0);
         }
-
         else if (!Input.GetKey(KeyCode.LeftShift) && !Input.GetKey(KeyCode.RightShift))
         {
             animator.SetFloat("Speed", 0.5f);
         }
-
         else
         {
             animator.SetFloat("Speed", 1);
             speed *= 2f;
+            isRunning = true; // Player is sprinting
         }
 
         animator.SetFloat("Speed", speed, 0.05f, Time.deltaTime);
@@ -97,13 +108,13 @@ public class CubaLagi : MonoBehaviour
         {
             // ---- GROUNDED BRANCH ----
             characterController.stepOffset = originalStepOffset;
-            ySpeed = -0.5f;                          // small downward force keeps CC grounded
+            ySpeed = -0.5f;
 
             animator.SetBool("IsGrounded", true);
             isGrounded = true;
             animator.SetBool("IsJumping", false);
             isJumping = false;
-            animator.SetBool("IsFalling", false);    // FIX: clear falling on land
+            animator.SetBool("IsFalling", false);
 
             // Jump within grace window
             if (jumpButtonPressedTime.HasValue &&
@@ -126,7 +137,6 @@ public class CubaLagi : MonoBehaviour
             if ((isJumping && ySpeed < 0) || ySpeed < -2f)
                 animator.SetBool("IsFalling", true);
 
-            // FIX: move the character while airborne
             Vector3 velocity = movementDirection * speed * jumpHorizontalSpeed;
             velocity.y = ySpeed;
             characterController.Move(velocity * Time.deltaTime);
@@ -145,6 +155,9 @@ public class CubaLagi : MonoBehaviour
             animator.SetBool("IsMoving", false);
         }
 
+        // Handle footstep audio triggers based on movement state
+        HandleFootstepAudio(isRunning);
+
         HandleEmote();
     }
 
@@ -153,10 +166,36 @@ public class CubaLagi : MonoBehaviour
     {
         if (isGrounded)
         {
-            // Remove the animator.deltaPosition line and drive it manually
             Vector3 velocity = movementDirection * speed * moveSpeed;
             velocity.y = ySpeed;
             characterController.Move(velocity * Time.deltaTime);
+        }
+    }
+
+    private void HandleFootstepAudio(bool playerIsRunning)
+    {
+        if (footstepAudioSource == null) return;
+
+        // Player should only make sound if moving AND touching the ground
+        bool shouldPlaySound = (movementDirection != Vector3.zero) && isGrounded;
+
+        if (shouldPlaySound)
+        {
+            // Dynamic footstep speed adjustment based on walking vs running
+            footstepAudioSource.pitch = playerIsRunning ? runPitch : walkPitch;
+
+            if (!footstepAudioSource.isPlaying)
+            {
+                footstepAudioSource.Play();
+            }
+        }
+        else
+        {
+            // Stop sound immediately if player stands still or jumps into the air
+            if (footstepAudioSource.isPlaying)
+            {
+                footstepAudioSource.Stop();
+            }
         }
     }
 
